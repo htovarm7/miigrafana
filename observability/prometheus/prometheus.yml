@@ -12,3 +12,9 @@ scrape_configs:
       - targets: ["host.docker.internal:5011"]
         labels:
           app: miicel-api-management
+  - job_name: miicel-api-users
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:5001"]
+        labels:
+          app: miicel-api-users
