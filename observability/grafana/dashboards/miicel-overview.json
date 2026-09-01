@@ -14,6 +14,14 @@
         "label": "Buscar en logs (regex)",
         "query": ".*",
         "current": { "text": ".*", "value": ".*" }
+      },
+      {
+        "name": "userId",
+        "type": "textbox",
+        "label": "UserId (auditoria)",
+        "description": "Filtra el panel de auditoria por el UserId del claim JWT (o el que se manda a /api/home/test-error). Dejar en .+ para ver todos los usuarios.",
+        "query": ".+",
+        "current": { "text": ".+", "value": ".+" }
       }
     ]
   },
@@ -119,6 +127,26 @@
         {
           "datasource": { "type": "loki", "uid": "loki" },
           "expr": "{app=\"miicel-api-management\"} |~ \"$search\""
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Auditoria: que hizo el usuario $userId antes de fallar",
+      "description": "Solo errores (level=error), filtrados por UserId. Muestra el request/accion que se estaba ejecutando (Endpoint), el motivo si vino en la query (Reason) y la excepcion completa. Usar para responder 'el usuario X reporto que Y fallo, que paso'.",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessages": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{app=\"miicel-api-management\"} | json | level=\"error\" | UserId=~\"$userId\""
         }
       ]
     }
