@@ -16,7 +16,9 @@ The actual app-side wiring lives in `MiiCelBack`, not here:
 - Test endpoint that fails on purpose: `GET /api/home/test-error` in `MiiCelBack/src/MiiCel.Api/MiiCel.Api.Management/Controllers/HomeController.cs` (remove once the demo is no longer needed).
 - Request logs are enriched with `UserId` (from the JWT claim) and `Endpoint` so failures can be traced back to a specific user (see "Finding what a specific user did" below).
 
-Users and Workers don't have the wiring yet — replicate the same pattern in `MiiCelBack` when the team decides to move to that phase.
+`MiiCel.Api.Users` already has the same `UserId`/`Endpoint` wiring as Management (identical `Program.cs` pattern). `MiiCel.Api.Workers` (the Temporal worker host) does not have it yet — it currently uses plain `Console.WriteLine`, no Serilog at all — replicate the pattern there when the team decides to move to that phase.
+
+**Standardizing logs across services**: before wiring up a new service (or adding step-by-step tracing to an existing multi-step flow, e.g. "which stage of a purchase failed"), read the **"Logging standard: per-user, per-stage audit fields"** section in [OBSERVABILIDAD.md](../OBSERVABILIDAD.md#logging-standard-per-user-per-stage-audit-fields) first. It defines the exact field names (`UserId`, `Endpoint`, `Stage`, `Message`, `Service`, `CorrelationId`), the one-line-per-failure rule, and a generic instrumentation checklist — so a new service's logs stay queryable the same way as everything already shipped, instead of drifting into ad-hoc field names.
 
 ## Current setup: `dotnet run` (no Docker build needed)
 
@@ -94,6 +96,29 @@ Then in Grafana → **Explore** → **Loki**, filter to just that one user's fai
 
 That returns only the `8842` request — the structured exception (type, message, full stack trace) and the request-level "responded 500" line, with `1900`'s failure filtered out. On a real authenticated endpoint the same query works with the actual `UserId` claim value, so support can go from "user says recharge X failed" straight to the exact log line without reading every request.
 
+## Testing it with Postman
+
+If you have a real JWT (issued by MiiIdentidad, or minted locally against the `Jwt` secret in `appsettings.Development.json`), Postman is the quickest way to exercise a real authenticated endpoint locally and watch the audit trail land in Grafana.
+
+**What you can test today** (already shipped, live-testable):
+
+1. In Postman, create an environment with `baseUrl` (`http://localhost:5011` for Management, `http://localhost:5001` for Users) and `token` (your JWT).
+2. Add an `Authorization: Bearer {{token}}` header (or use Postman's Bearer Token auth tab) and call any `[Authorize]` endpoint — e.g. `GET {{baseUrl}}/api/catalog/mobileapp` (Management) or `POST {{baseUrl}}/api/purchase/serviceplan` (Users).
+3. Whatever the outcome, open Grafana → **Explore** → **Loki** and filter by the `UserId` from your token's claim:
+   ```
+   {app=~".+"} | json | UserId="<your UserId>"
+   ```
+   You'll see every log line — success or failure — tagged with that user, across whichever service you hit. If the request failed, per the "single line per error" behavior already shipped, there's exactly one `level="error"` line with the full exception, not three.
+
+**What it will look like once the "Logging standard" section of [OBSERVABILIDAD.md](../OBSERVABILIDAD.md#logging-standard-per-user-per-stage-audit-fields) is applied to a multi-step flow** (illustrative — `Stage`/`CorrelationId` don't exist in the logs yet, this is what to expect once they're added):
+
+- Calling `POST /api/purchase/serviceplan` in Postman, and it fails partway through, would produce one line tagged with the `Stage` where it broke (e.g. `Stage="GetSaleInfoFromBroker"`) and a `CorrelationId` (the sale's `SaleGUID`).
+- Grabbing that `CorrelationId` (from the log line, or from the API response if it's echoed back) and querying:
+  ```
+  {app=~".+"} | json | CorrelationId="<the SaleGUID>"
+  ```
+  would show every stage that ran for that one purchase attempt, across both the Users API and the Workers/Temporal side — the actual step-by-step trace the team wants, instead of just "a purchase failed".
+
 ## Log retention: 3 months of history, queryable by day/month
 
 Loki is configured to keep **90 days (2160h)** of logs before deleting them, via `compactor.retention_enabled: true` + `limits_config.retention_period: 2160h` in [observability/loki/loki-config.yml](loki/loki-config.yml). The compactor runs every 10 minutes and needs a `delete_request_store` configured (set to `filesystem`, same backend as the chunks) — without it Loki refuses to start with retention enabled.
@@ -107,16 +132,26 @@ Retention notes:
 
 ## Switching to a fully dockerized API later
 
+`docker-compose.observability.yml` already joins the external `miivida_vnet` network — the same one `MiiCelBack`'s own `docker-compose.development.yml`/`.staging.yml`/`.production.yml` join to reach SQL Server, MiiIdentidad and MiiPago. That means **miigrafana keeps running as its own, separate `docker compose` project** (its own containers, its own `docker compose up`/`down`) — it does not need to be merged into MiiCelBack's compose files to be reachable from them, and doesn't require MiiCelBack's compose files to reference this repo at all.
+
 Once you have `AZURE_DEVOPS_PAT`/`AZURE_DEVOPS_ENDPOINT` available (see the `TODO` in `MiiCelBack/.env`) and want to run the API itself inside Docker instead of `dotnet run`:
 
-1. In `MiiCelBack/src/MiiCel.Api/MiiCel.Api.Management/appsettings.Development.json`, change the Loki sink URI from `http://localhost:3200` to `http://loki:3100`.
-2. In `observability/prometheus/prometheus.yml`, change the scrape target from `host.docker.internal:5011` to `miicel.api.management:8080` (the Compose service name, resolved via Docker's internal DNS).
-3. Run everything together so the containers share the same Compose network — this means running from the `MiiCelBack` repo and pointing at this repo's compose file:
+1. Make sure the `miivida_vnet` network exists (it's created once, typically by ops, the same as for the other MiiVida services): `docker network create miivida_vnet` if it doesn't already.
+2. In `MiiCelBack`'s environment config for the target environment (e.g. `.env.development`, following the existing `AppSettings__*` env-var convention), point the Loki sink URI at the container DNS name instead of `localhost`: `http://loki:3100` instead of `http://localhost:3200`.
+3. In [observability/prometheus/prometheus.yml](prometheus/prometheus.yml), swap the commented-out `miicel.api.management:8080`/`miicel.api.users:8080` block in for the `host.docker.internal:...` one currently active — the comments in that file mark exactly which lines to swap.
+4. Bring up each stack independently, both joining `miivida_vnet`:
 
 ```bash
+# From the MiiCelBack repo, on whichever compose files match the target environment:
 cd ../MiiCelBack
-docker compose -f docker-compose.yml -f docker-compose.override.yml -f ../miigrafana/docker-compose.observability.yml up --build
+docker compose --env-file .env.development -f docker-compose.yml -f docker-compose.development.yml up --build
+
+# From this repo, separately:
+cd ../miigrafana
+docker compose -f docker-compose.observability.yml up -d
 ```
+
+Neither `docker compose` invocation references the other repo's compose file — they're two independent projects that happen to share one Docker network.
 
 ## Shutting down
 
