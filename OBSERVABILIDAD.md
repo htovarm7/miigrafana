@@ -136,11 +136,13 @@ Every audit log line — whatever service or layer emits it — uses exactly the
 | `UserId` | the user whose request/action this is | Already implemented (HTTP `LogContext.PushProperty` in both APIs) |
 | `Endpoint` | the HTTP route that was called | Already implemented |
 | `Stage` | which step of a multi-step flow failed — the name of the method/activity being instrumented (e.g. `GetSaleInfoFromBroker`, `ValidateAndReservePayment`). No enum needed, the method name as a plain string is enough | New — apply when instrumenting a multi-step flow |
-| `Message` | a short, human-readable description of the failure. Business-exception text stays in whatever language it already is (Spanish, per the team's convention) — only field *names* and code comments are English | New/existing, standardized shape |
-| `Service` | which process emitted the line: `miicel-api-users`, `miicel-api-management`, `miicel-api-workers`. Mirrors the existing Loki stream label (`app` in the `GrafanaLoki` sink config) as a queryable body field, so a LogQL query spanning multiple services doesn't have to rely on stream labels alone | New |
+| `Reason` | a short, human-readable description of the failure. Business-exception text stays in whatever language it already is (Spanish, per the team's convention) — only field *names* and code comments are English | New/existing, standardized shape |
+| `Service` | which process emitted the line: `miicel-api-users`, `miicel-api-management`, `miicel-api-workers`. Mirrors the existing Loki stream label (`app` in the `GrafanaLoki` sink config) as a queryable body field, so a LogQL query spanning multiple services doesn't have to rely on stream labels alone | New — implemented in Management via `Enrich.WithProperty("Service", ...)` in `Program.cs` |
 | `CorrelationId` | ties every stage of ONE multi-step operation together, across services (an HTTP request that later continues inside a Temporal Worker). **Reuse an ID the flow already has** — e.g. `SaleGUID` (already on `PurchaseServicePlanCommand`/`SaleLogEntity`/`SaleAttemptEntity`) or `WorkflowId` (already on `RechargeCommand`). Never invent a new ID scheme for a flow that already carries one | New |
 
-**Naming discipline matters here**: this table is intentionally exhaustive — don't add ad-hoc variants of these fields (`userid`, `UsuarioId`, `Action`, `Motivo`, etc.). If a new flow's failure doesn't fit cleanly into `Stage`/`Message`, that's a sign that flow needs its own reviewed addition to this table, not a one-off field name invented on the spot.
+**Naming discipline matters here**: this table is intentionally exhaustive — don't add ad-hoc variants of these fields (`userid`, `UsuarioId`, `Action`, `Motivo`, etc.). If a new flow's failure doesn't fit cleanly into `Stage`/`Reason`, that's a sign that flow needs its own reviewed addition to this table, not a one-off field name invented on the spot.
+
+**Why `Reason`, not `Message`**: Serilog already reserves a `Message` property for the fully-rendered log text. If your template literally uses `{Message}` as a custom property name, Serilog silently renames it to `_Message` in the emitted JSON to avoid clobbering its own field — confirmed against a real Loki query while building the example below. `Reason` sidesteps the collision entirely; use it, not `Message`.
 
 ### The rules
 
@@ -148,9 +150,26 @@ Every audit log line — whatever service or layer emits it — uses exactly the
 2. **Log level**: `Warning` for an expected/business failure (a known validation rule, a known `MiiErrorCode`); `Error` for an unexpected/infrastructure failure (SQL, gRPC transport, an unhandled exception).
 3. **`CorrelationId` before `Stage`.** If a flow doesn't have an ID that already threads through every stage, add that first — a `Stage` without a `CorrelationId` tells you *what* failed but not *which specific attempt*, so you can't reconstruct the full trace of one operation.
 
+### A real, working example — try it right now
+
+`GET /api/home/test-multistage` (Management API, `HomeController.cs`) is a live, working reference implementation of this pattern — not pseudo-code. It simulates a 3-stage flow (`ValidateUser` → `CallExternalService` → `PersistResult`), tags every line with `Stage`/`CorrelationId`/`UserId`/`Service`/`Reason`, and fails at whichever stage you ask it to:
+
+```bash
+curl "http://localhost:5011/api/home/test-multistage?userId=9001&failAt=CallExternalService"
+# {"correlationId":"79d81dd8-...", "message":"Fallo simulado - busca este CorrelationId en Grafana/Loki..."}
+```
+
+Then, in Grafana → Explore → Loki:
+
+```
+{app="miicel-api-management"} | json | CorrelationId="79d81dd8-..."
+```
+
+returns exactly two lines: `Stage=ValidateUser` (Information, "Etapa ValidateUser completada") and `Stage=CallExternalService` (Error, "Etapa CallExternalService fallo", full exception attached) — `PersistResult` never ran, and there's no third, duplicate line from it further up the pipeline. Read `HomeController.cs`'s `TestMultiStage`/`RunStage` methods for exactly how it's wired — that's the checklist below made concrete.
+
 ### How to instrument a new flow (checklist)
 
-This is deliberately generic — apply it to a service method, a Temporal Activity, or a gRPC/HTTP client call, whichever needs it next. The two examples below are illustrative pseudo-code, not real files in this codebase.
+This is deliberately generic — apply it to a service method, a Temporal Activity, or a gRPC/HTTP client call, whichever needs it next. The `PlaceOrder`/`ReservePayment` examples below are illustrative pseudo-code for cases `test-multistage` doesn't cover (a real business method, a Temporal Activity) — for the exact same pattern already running, see `test-multistage` above instead.
 
 **1. A multi-step service method** — wrap each stage in its own `catch`, not one catch around the whole method:
 
@@ -169,8 +188,7 @@ public async Task<MiiResult<OrderResult>> PlaceOrder(PlaceOrderCommand command)
     }
     catch (Exception ex)
     {
-        _logger.LogError(ex, "{Message}",
-            "Failed to load customer for order {OrderGuid}"); // Message field
+        _logger.LogError(ex, "{Reason}", "Failed to load customer");
         // Stage/Service/UserId/CorrelationId come from LogContext — see step 3
         return MiiResult<OrderResult>.Failure(MiiError.Get(MiiErrorCode.MiiCelUnknownError));
     }
@@ -182,13 +200,15 @@ public async Task<MiiResult<OrderResult>> PlaceOrder(PlaceOrderCommand command)
     }
     catch (Exception ex)
     {
-        _logger.LogError(ex, "{Message}", "Failed to reserve payment");
+        _logger.LogError(ex, "{Reason}", "Failed to reserve payment");
         return MiiResult<OrderResult>.Failure(MiiError.Get(MiiErrorCode.MiiCelUnknownError));
     }
 
     // ...remaining stages, same pattern
 }
 ```
+
+**Important**: if a stage's failure is allowed to keep propagating past this method unlogged (e.g. rethrown instead of converted into a `MiiResult` here), whoever catches it next won't see `Stage`/`CorrelationId` — those only live inside the `LogContext` scope that's still active at the point you log. Log inside the innermost scope that still has the full context, not after it's already bubbled out (`test-multistage`'s own controller action demonstrates exactly this: it catches the exception itself, right where `CorrelationId` is still in scope, instead of letting it become an unhandled 500 further up).
 
 **2. A Temporal Activity** — push `CorrelationId` (and `UserId`, if the activity's input carries it) into `LogContext` at the top, so every log line inside that activity — including ones from repositories/clients it calls — picks it up automatically, then log once on failure:
 
@@ -206,13 +226,13 @@ public async Task<PaymentResult> ReservePayment(ReservePaymentInput input)
     }
     catch (Exception ex)
     {
-        _logger.LogError(ex, "{Message}", "Failed to reserve payment in MiiPago");
+        _logger.LogError(ex, "{Reason}", "Failed to reserve payment in MiiPago");
         throw; // Temporal needs the exception to keep propagating to drive retries/compensation
     }
 }
 ```
 
-**3. `Stage` and `Service` don't need to be passed manually on every call** — push them into `LogContext` once, near the top of the method/activity being instrumented (`LogContext.PushProperty("Stage", nameof(ReservePayment))`), the same way `UserId`/`Endpoint` are already pushed once per HTTP request in `Program.cs`. `Service` can be pushed once at startup (`LogContext.PushProperty("Service", "miicel-api-workers")`), since it never changes within one process.
+**3. `Stage` and `Service` don't need to be passed manually on every call** — push them into `LogContext` once, near the top of the method/activity being instrumented (`LogContext.PushProperty("Stage", nameof(ReservePayment))`), the same way `UserId`/`Endpoint` are already pushed once per HTTP request in `Program.cs`. `Service` doesn't need per-request pushing at all — add it once, for the whole process, via `.Enrich.WithProperty("Service", "miicel-api-workers")` in the `UseSerilog(...)` configuration call (exactly as done for Management — see `Program.cs`), since it never changes within one process.
 
 ### A note on today's inconsistency between Users and Management
 
@@ -234,6 +254,6 @@ Investigating the current setup surfaced one thing worth fixing whenever this st
 {app=~".+"} | json | Service="miicel-api-workers" | level="error"
 ```
 
-### Where this applies first
+### Where this applies next
 
-The purchase/recharge flow is the clearest real candidate — `PurchaseService.PurchaseServicePlan` (in `MiiCelBack`) currently wraps roughly ten stages (validate → load purchase info → load plan pricing → load store invoicing → call the Datalogic broker → execute the sale → post-process → reschedule the subscription) in one outer `try/catch`, collapsing every possible failure into a generic error. The Temporal `RechargeActivities` class already has each of those stages isolated as its own `[Activity]` method with an injected `ILogger` that's never actually called — that's the natural starting point, since the isolation this standard asks for already exists there, it just needs the logging calls added. Neither is changed by this document; this is the reference for whoever picks that work up next.
+`test-multistage` is a self-contained demo — it doesn't touch any real business flow. The purchase/recharge flow is the clearest real candidate to apply this to next: `PurchaseService.PurchaseServicePlan` (in `MiiCelBack`) currently wraps roughly ten stages (validate → load purchase info → load plan pricing → load store invoicing → call the Datalogic broker → execute the sale → post-process → reschedule the subscription) in one outer `try/catch`, collapsing every possible failure into a generic error. The Temporal `RechargeActivities` class already has each of those stages isolated as its own `[Activity]` method with an injected `ILogger` that's never actually called — that's the natural starting point, since the isolation this standard asks for already exists there, it just needs the logging calls added, following the exact same pattern as `test-multistage`.

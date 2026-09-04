@@ -18,7 +18,7 @@ The actual app-side wiring lives in `MiiCelBack`, not here:
 
 `MiiCel.Api.Users` already has the same `UserId`/`Endpoint` wiring as Management (identical `Program.cs` pattern). `MiiCel.Api.Workers` (the Temporal worker host) does not have it yet — it currently uses plain `Console.WriteLine`, no Serilog at all — replicate the pattern there when the team decides to move to that phase.
 
-**Standardizing logs across services**: before wiring up a new service (or adding step-by-step tracing to an existing multi-step flow, e.g. "which stage of a purchase failed"), read the **"Logging standard: per-user, per-stage audit fields"** section in [OBSERVABILIDAD.md](../OBSERVABILIDAD.md#logging-standard-per-user-per-stage-audit-fields) first. It defines the exact field names (`UserId`, `Endpoint`, `Stage`, `Message`, `Service`, `CorrelationId`), the one-line-per-failure rule, and a generic instrumentation checklist — so a new service's logs stay queryable the same way as everything already shipped, instead of drifting into ad-hoc field names.
+**Standardizing logs across services**: before wiring up a new service (or adding step-by-step tracing to an existing multi-step flow, e.g. "which stage of a purchase failed"), read the **"Logging standard: per-user, per-stage audit fields"** section in [OBSERVABILIDAD.md](../OBSERVABILIDAD.md#logging-standard-per-user-per-stage-audit-fields) first. It defines the exact field names (`UserId`, `Endpoint`, `Stage`, `Reason`, `Service`, `CorrelationId`), the one-line-per-failure rule, and a generic instrumentation checklist — so a new service's logs stay queryable the same way as everything already shipped, instead of drifting into ad-hoc field names. `GET /api/home/test-multistage` (Management) is a live, working example of the whole pattern — see the next section.
 
 ## Current setup: `dotnet run` (no Docker build needed)
 
@@ -110,14 +110,15 @@ If you have a real JWT (issued by MiiIdentidad, or minted locally against the `J
    ```
    You'll see every log line — success or failure — tagged with that user, across whichever service you hit. If the request failed, per the "single line per error" behavior already shipped, there's exactly one `level="error"` line with the full exception, not three.
 
-**What it will look like once the "Logging standard" section of [OBSERVABILIDAD.md](../OBSERVABILIDAD.md#logging-standard-per-user-per-stage-audit-fields) is applied to a multi-step flow** (illustrative — `Stage`/`CorrelationId` don't exist in the logs yet, this is what to expect once they're added):
+**Stage-by-stage tracing, live today (demo, not a real business flow)**: `GET /api/home/test-multistage` on the Management API is a working, callable example of the full "Logging standard" pattern from [OBSERVABILIDAD.md](../OBSERVABILIDAD.md#logging-standard-per-user-per-stage-audit-fields) — no JWT needed, `[AllowAnonymous]` like `test-error`.
 
-- Calling `POST /api/purchase/serviceplan` in Postman, and it fails partway through, would produce one line tagged with the `Stage` where it broke (e.g. `Stage="GetSaleInfoFromBroker"`) and a `CorrelationId` (the sale's `SaleGUID`).
-- Grabbing that `CorrelationId` (from the log line, or from the API response if it's echoed back) and querying:
-  ```
-  {app=~".+"} | json | CorrelationId="<the SaleGUID>"
-  ```
-  would show every stage that ran for that one purchase attempt, across both the Users API and the Workers/Temporal side — the actual step-by-step trace the team wants, instead of just "a purchase failed".
+1. In Postman: `GET {{baseUrl}}/api/home/test-multistage?userId=9001&failAt=CallExternalService` (valid `failAt` values: `ValidateUser`, `CallExternalService`, `PersistResult`). The response body includes a `correlationId`.
+2. Grafana → **Explore** → **Loki**:
+   ```
+   {app="miicel-api-management"} | json | CorrelationId="<the correlationId from the response>"
+   ```
+   Returns exactly the stages that ran before the failure — e.g. with `failAt=CallExternalService`: one `Information` line for `Stage=ValidateUser` ("completed"), one `Error` line for `Stage=CallExternalService` ("failed", full exception attached) — `PersistResult` never shows up, since it never ran. That's the real, working shape of "which step of the flow broke", not an illustration.
+3. **This is a self-contained demo, not the purchase flow** — applying the same pattern to `PurchaseService`/`RechargeActivities` (a real `SaleGUID`-based `CorrelationId` across the Users API and the Temporal Worker) is the next real piece of work, described at the end of the OBSERVABILIDAD.md section linked above.
 
 ## Log retention: 3 months of history, queryable by day/month
 
