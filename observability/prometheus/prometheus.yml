@@ -18,3 +18,22 @@ scrape_configs:
       - targets: ["host.docker.internal:5001"]
         labels:
           app: miicel-api-users
+
+  # Fully-dockerized MiiCelBack workflow: once Users/Management run as
+  # containers on the shared miivida_vnet network (see docker-compose.yml
+  # in the MiiCelBack repo), scrape them by Compose service name instead of
+  # host.docker.internal. Swap the two blocks above for these two when that
+  # switch happens — do not run both at once, they'd double-count metrics
+  # for whichever API runs in both places.
+  # - job_name: miicel-api-management
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ["miicel.api.management:8080"]
+  #       labels:
+  #         app: miicel-api-management
+  # - job_name: miicel-api-users
+  #   metrics_path: /metrics
+  #   static_configs:
+  #     - targets: ["miicel.api.users:8080"]
+  #       labels:
+  #         app: miicel-api-users

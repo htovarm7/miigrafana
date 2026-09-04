@@ -7,7 +7,10 @@ services:
       - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/loki
     ports:
-      - "3200:3100" # 3100-3144 can land in Windows' Hyper-V excluded port range; internal traffic still uses 3100
+      - "3200:3100"
+    networks:
+      - default
+      - miivida_vnet
 
   prometheus:
     image: prom/prometheus:v2.55.1
@@ -19,6 +22,9 @@ services:
       - prometheus-data:/prometheus
     ports:
       - "9090:9090"
+    networks:
+      - default
+      - miivida_vnet
 
   grafana:
     image: grafana/grafana-oss:11.3.1
@@ -37,8 +43,16 @@ services:
     depends_on:
       - loki
       - prometheus
+    networks:
+      - default
+      - miivida_vnet
 
 volumes:
   loki-data:
   prometheus-data:
   grafana-data:
+
+networks:
+  default: {}
+  miivida_vnet:
+    external: true
