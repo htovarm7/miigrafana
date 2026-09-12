@@ -1,0 +1,13 @@
+{
+  "name": "@miicel/react-native-logger",
+  "version": "0.1.0",
+  "description": "Ships structured audit logs (UserId/Service/Reason/CorrelationId) from the React Native app to miigrafana's ingestion gateway.",
+  "main": "logsTelemetry.ts",
+  "scripts": {
+    "test:local": "ts-node logsTelemetry.test.ts"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.6.3"
+  }
+}
