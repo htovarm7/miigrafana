@@ -6,6 +6,10 @@ This demonstrates the "Logging standard" documented in [OBSERVABILIDAD.md](../OB
 
 It's a self-contained demo endpoint — it doesn't touch any real business flow (see the OBSERVABILIDAD.md section for where this pattern applies next, e.g. the purchase flow).
 
+**Related demos**:
+- [`../clients/react-native-logger/`](../clients/react-native-logger/) — the same standard, implemented in TypeScript for the React Native mobile app, going through the public token gateway instead of a direct in-network request. Run `npm run test:local` there for the same kind of trace, but for `{app="miicel-mobile"}`.
+- [`../tests/network-simulation/`](network-simulation/) — validates the network access model (public token gateway vs. VPN-only Grafana) that the mobile app's traffic goes through, before any real VM/VNet exists.
+
 ## Case 1: all stages succeed
 
 ```bash

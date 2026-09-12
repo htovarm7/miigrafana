@@ -257,3 +257,40 @@ Investigating the current setup surfaced one thing worth fixing whenever this st
 ### Where this applies next
 
 `test-multistage` is a self-contained demo — it doesn't touch any real business flow. The purchase/recharge flow is the clearest real candidate to apply this to next: `PurchaseService.PurchaseServicePlan` (in `MiiCelBack`) currently wraps roughly ten stages (validate → load purchase info → load plan pricing → load store invoicing → call the Datalogic broker → execute the sale → post-process → reschedule the subscription) in one outer `try/catch`, collapsing every possible failure into a generic error. The Temporal `RechargeActivities` class already has each of those stages isolated as its own `[Activity]` method with an injected `ILogger` that's never actually called — that's the natural starting point, since the isolation this standard asks for already exists there, it just needs the logging calls added, following the exact same pattern as `test-multistage`.
+
+## External ingestion: the token gateway
+
+Everything above assumes the log's source is inside the trusted network (an ASP.NET Core request, a Temporal activity — all running on `MiiCelBack`'s own VM, reachable over the private Azure VNet). The React Native mobile app is different: it runs on whatever network the phone is on, so its logs — including crash reports — necessarily arrive over the **public internet**, not the VNet. That's the one case that needs a public endpoint, and the one case that needs an actual auth check instead of relying on network placement.
+
+### Why only the gateway is public
+
+Confirmed deployment model: MiiCelBack (.NET 8) runs on an Ubuntu VM with Docker; miigrafana gets its own VM in the **same/peered Azure VNet**, so VM-to-VM traffic (Prometheus scraping `/metrics`, MiiCelBack's Serilog sink shipping logs to Loki) stays on private IPs and never needs a token — placement on the private network *is* the access control for that traffic. The mobile app can't be placed on that private network, so it's the only caller that needs the public endpoint, and the only one that needs to prove who it is via a header.
+
+Only one thing is public: a write-only nginx gateway in front of Loki's push API. Loki's query API, Prometheus, and Grafana's UI are never exposed publicly — the other VMs reach them over the VNet, and a human admin reaches Grafana over the WireGuard VPN (`grafana.miicaja.org` resolves to the VM's public IP via Cloudflare DNS, but the Azure NSG rule only accepts inbound connections from the WireGuard IP range — the name resolves, the connection doesn't, unless you're on the VPN).
+
+```
+Internet (React Native app) ──(public IP, X-API-Key required)──> [nginx gateway] ──> Loki :3100 (push only)
+                                                                                          ▲
+Other VMs in the VNet (private IP) ─────────────────────────────────────────────────────┘  (Prometheus scrape, Loki push — no token, private network only)
+Admin (WireGuard VPN) ──(NSG allows only the VPN range)──> Grafana :3000
+```
+
+### How it works
+
+`docker-compose.observability.yml`'s `gateway` service (nginx) proxies exactly one route, `POST /loki/api/v1/push` → `http://loki:3100/loki/api/v1/push`, and requires a `X-API-Key` header matching the `GATEWAY_API_KEY` env var — anything else gets `401`, and every other route (including Loki's own query API) is a flat `404` through this container; those stay reachable only on the private network. Loki's own config (`auth_enabled: false`) is untouched — the check lives entirely in the gateway, in front of it.
+
+`docker-compose.production.yml` is the environment-specific overlay for the real VM: binds Loki/Prometheus/Grafana's ports to the VM's **private** IP (never the internet), publishes only `gateway` on the public interface, and hardens Grafana (`GF_AUTH_ANONYMOUS_ENABLED=false`, a real admin password). The WireGuard-range-only restriction on Grafana is an **Azure NSG rule**, not anything in this repo — the compose file only controls which interface a port binds to, not which source IPs may connect to it.
+
+### How to add a new external source
+
+Any external caller — any language, any stack, no Docker/VM of its own required — follows the same recipe: `POST` a Loki-shaped JSON body (`{"streams":[{"stream":{"app":"<service>","level":"..."},"values":[["<epoch-ns>","<json-encoded line>"]]}]}`) to the gateway with the `X-API-Key` header, using the field contract from the "Logging standard" section above (`UserId`, `Service`, `Reason`, `CorrelationId`, optional `Stage`). `clients/react-native-logger/logsTelemetry.ts` is the reference implementation — copy the pattern, not necessarily the file, for a different stack.
+
+### Validating this locally, before any VM exists
+
+`tests/network-simulation/` proves the model — public token gateway + network-restricted Grafana — with three local Docker networks standing in for the VNet, the WireGuard range, and the public internet. Run `bash tests/network-simulation/run-test.sh`; see that folder's README for what each of the 5 checks means and what a failure would indicate.
+
+### What's not implemented here
+
+- The actual Azure VM/VNet/WireGuard range/Cloudflare DNS record — infra done outside these repos.
+- TLS on the public gateway — a real deployment should terminate HTTPS somewhere in front of it (Cloudflare, an Azure load balancer, or a cert on nginx itself), depending on how the rest of the Azure setup already handles TLS.
+- Wiring `MiiCelBack`'s `appsettings.Production.json`/`.Staging.json` (neither exists yet) to point at miigrafana's private IP — flagged as a prerequisite for whoever deploys `MiiCelBack` to that VM, not implemented in this repo.

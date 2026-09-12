@@ -154,6 +154,18 @@ docker compose -f docker-compose.observability.yml up -d
 
 Neither `docker compose` invocation references the other repo's compose file — they're two independent projects that happen to share one Docker network.
 
+## Deploying to miigrafana's own VM (production)
+
+`docker-compose.production.yml` is the overlay for the dedicated Azure VM (see OBSERVABILIDAD.md's "External ingestion: the token gateway" for the full design — public token-gated gateway, everything else private-VNet-only):
+
+```bash
+docker compose -f docker-compose.observability.yml -f docker-compose.production.yml up -d
+```
+
+Needs `PRIVATE_IP`, `GATEWAY_API_KEY`, and `GRAFANA_ADMIN_PASSWORD` set (via a `.env` file next to the compose files, not committed). The WireGuard-range-only restriction on Grafana's port is an Azure NSG rule, not anything in these files.
+
+Before touching the real VM, `bash tests/network-simulation/run-test.sh` proves the access model locally — see [tests/network-simulation/README.md](../tests/network-simulation/README.md).
+
 ## Shutting down
 
 ```bash
