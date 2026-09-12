@@ -1,0 +1,30 @@
+# Public ingestion gateway: the ONLY thing meant to be reachable from outside
+# the private network (see OBSERVABILIDAD.md, "External ingestion: the token
+# gateway"). It proxies exactly one route - the Loki push API - and rejects
+# anything that doesn't carry the right header. Everything else (Loki's query
+# API, Prometheus, Grafana) is never proxied through this container.
+#
+# Templated by the official nginx image's docker-entrypoint (envsubst runs
+# automatically on *.template files mounted under /etc/nginx/templates/).
+# Only ${GATEWAY_API_KEY} gets substituted - nginx's own $http_... / $host
+# variables are untouched since those aren't container environment variables.
+
+server {
+    listen 8080;
+
+    location = /loki/api/v1/push {
+        if ($http_x_api_key != "${GATEWAY_API_KEY}") {
+            return 401;
+        }
+
+        proxy_pass http://loki:3100/loki/api/v1/push;
+        proxy_set_header Host $host;
+        proxy_set_header Content-Type $content_type;
+    }
+
+    # Anything else - including Loki's own query API - is intentionally not
+    # reachable through this gateway.
+    location / {
+        return 404;
+    }
+}

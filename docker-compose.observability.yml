@@ -1,4 +1,18 @@
 services:
+  gateway:
+    image: nginx:1.27-alpine
+    container_name: miicel-gateway
+    environment:
+      - GATEWAY_API_KEY=${GATEWAY_API_KEY:-dev-local-only-key}
+    volumes:
+      - ./observability/nginx/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+    ports:
+      - "8081:8080"
+    depends_on:
+      - loki
+    networks:
+      - default
+
   loki:
     image: grafana/loki:3.2.1
     container_name: miicel-loki

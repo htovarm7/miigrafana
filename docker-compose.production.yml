@@ -1,0 +1,19 @@
+services:
+  gateway:
+    ports:
+      - "8081:8080"
+
+  loki:
+    ports:
+      - "${PRIVATE_IP}:3100:3100"
+  prometheus:
+    ports:
+      - "${PRIVATE_IP}:9090:9090"
+
+  grafana:
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+    ports:
+      - "${PRIVATE_IP}:3000:3000"
