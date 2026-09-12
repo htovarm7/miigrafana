@@ -1,0 +1,71 @@
+# Local stand-in for the real Azure network boundaries, so the access model
+# can be validated before any VM/VNet/WireGuard range actually exists. See
+# README.md in this folder and OBSERVABILIDAD.md's "External ingestion"
+# section for what each network represents.
+#
+# Run via run-test.sh, not `docker compose up` directly - the script also
+# runs the actual PASS/FAIL checks from ephemeral containers on each network.
+
+services:
+  # Stands in for "any App Service/VM inside the Azure VNet" - reaches Loki
+  # and Grafana directly, no token needed (private-network traffic).
+  loki:
+    image: grafana/loki:3.2.1
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ../../observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+    networks:
+      - net-vnet-sim
+
+  grafana:
+    image: grafana/grafana-oss:11.3.1
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    networks:
+      - net-vnet-sim
+
+  # Stands in for the public ingestion gateway - reachable from the
+  # simulated "public internet" network, but only forwards a request that
+  # carries the right token. Also reachable from net-vnet-sim so it can
+  # proxy to Loki.
+  gateway:
+    image: nginx:1.27-alpine
+    environment:
+      - GATEWAY_API_KEY=network-sim-key
+    volumes:
+      - ../../observability/nginx/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks:
+      - net-vnet-sim
+      - net-public-sim
+
+  # Stands in for the Azure NSG rule that only lets the WireGuard range reach
+  # Grafana's port. Reachable from both simulated networks; only actually
+  # proxies through for requests whose source IP is in net-vpn-sim.
+  grafana-gate:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/grafana-gate.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - grafana
+    networks:
+      - net-vnet-sim
+      - net-vpn-sim
+      - net-public-sim
+
+networks:
+  # "The Azure VNet" - trusted, no token/gate needed for traffic that starts here.
+  net-vnet-sim:
+    ipam:
+      config:
+        - subnet: 172.30.1.0/24
+  # "WireGuard-connected admin clients" - allowed through to Grafana only.
+  net-vpn-sim:
+    ipam:
+      config:
+        - subnet: 172.30.2.0/24
+  # "The public internet" (the React Native app, or anyone else) - can reach
+  # only the gateway's push endpoint, and only with a valid token.
+  net-public-sim:
+    ipam:
+      config:
+        - subnet: 172.30.3.0/24
