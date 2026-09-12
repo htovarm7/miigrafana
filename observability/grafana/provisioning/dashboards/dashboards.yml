@@ -1,11 +1,32 @@
 apiVersion: 1
 
+# One provider per service, each in its own Grafana folder, so dashboards
+# scale cleanly as more services are added (see OBSERVABILIDAD.md). Matches
+# the on-disk layout under observability/grafana/dashboards/<service>/.
 providers:
-  - name: MiiCel
+  - name: MiiCel Management
     orgId: 1
-    folder: MiiCel
+    folder: "MiiCel/Management"
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /var/lib/grafana/dashboards
+      path: /var/lib/grafana/dashboards/management
+
+  - name: MiiCel Users
+    orgId: 1
+    folder: "MiiCel/Users"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/users
+
+  - name: MiiCel Mobile App
+    orgId: 1
+    folder: "MiiCel/Mobile App"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/mobile-app
