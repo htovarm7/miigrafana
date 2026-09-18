@@ -1,40 +1,29 @@
-/**
- * Ships structured audit logs from the React Native app to miigrafana's
- * public ingestion gateway (see OBSERVABILIDAD.md, "External ingestion: the
- * token gateway"), using the same field contract already used by
- * MiiCel.Api.Management/Users: UserId, Service, Reason, CorrelationId, and
- * an optional Stage.
- *
- * Dependency-free - only uses the global `fetch`, which React Native
- * provides natively. No React Native APIs are imported here on purpose, so
- * this file can also run under plain Node/ts-node for local testing (see
- * logsTelemetry.test.ts).
- */
+// Ships structured logs from the React Native app to the gateway (POST /loki/api/v1/push).
 
 export type LogLevel = "info" | "warning" | "error";
 
 export interface LoggerConfig {
-  /** Base URL of the gateway, e.g. "https://grafana.miicaja.org" or "http://localhost:8081" for local testing. */
+  /** Gateway base URL, e.g. "http://localhost:8081". */
   baseUrl: string;
-  /** Shared secret checked by the gateway (X-API-Key header). */
+  /** Sent as the X-API-Key header. */
   apiKey: string;
-  /** Loki stream label identifying this app, e.g. "miicel-mobile". */
+  /** Loki `app` label, e.g. "miicel-mobile". */
   service: string;
 }
 
 export interface LogFields {
   userId?: string;
-  /** Ties this log to other log lines from the same operation/session, across services. */
+  /** Groups all lines of one operation/session. */
   correlationId?: string;
-  /** Which step/screen/flow this happened in, if the caller has one. */
+  /** Step/screen/flow where it happened. */
   stage?: string;
-  /** Arbitrary extra structured fields - kept flat, not nested, to match the existing Loki field shape. */
+  /** Extra flat fields. */
   extra?: Record<string, string | number | boolean | null | undefined>;
 }
 
 let config: LoggerConfig | null = null;
 
-/** Call once at app startup, before any logError/logInfo/logWarning call. */
+// Call once at app startup, before any log call.
 export function configureLogger(next: LoggerConfig): void {
   config = next;
 }
@@ -69,20 +58,13 @@ function buildPushBody(level: LogLevel, reason: string, fields: LogFields) {
   };
 }
 
-/**
- * Sends one log line to the gateway. Never throws on a failed/rejected
- * request (e.g. no network, or a bad API key) - logging must never crash the
- * app it's trying to report a crash from. Returns true if the gateway
- * accepted the line (HTTP 204), false otherwise.
- */
+// Sends one log line; never throws. Returns true if the gateway accepted it (204).
 async function send(
   level: LogLevel,
   reason: string,
   fields: LogFields = {},
 ): Promise<boolean> {
   if (!config) {
-    // Fail silently and loudly-in-dev: configureLogger() is a setup bug, not
-    // a runtime condition worth crashing over.
     console.warn(
       "logsTelemetry: dropped a log line because configureLogger() was never called.",
     );
@@ -100,8 +82,7 @@ async function send(
     });
     return response.status === 204;
   } catch {
-    // Network error, gateway unreachable, etc. - swallow it. A crash
-    // reporter that itself crashes the app defeats the point.
+    // Logging must never crash the app.
     return false;
   }
 }
@@ -124,21 +105,7 @@ export function logError(
   return send("error", reason, fields);
 }
 
-/**
- * Wires this logger into React Native's global error handler, so an
- * uncaught JS exception is reported here automatically - the actual "en
- * caso de crasheo le notifique a este servicio de logs" requirement.
- *
- * Call this once at app startup, after configureLogger(). Not called
- * automatically by this module, since ErrorUtils is a React Native global
- * that doesn't exist under plain Node (kept out of this file's own runtime
- * path so logsTelemetry.test.ts can still run under ts-node).
- *
- * Usage (in the app's entry point):
- *   import { configureLogger, installGlobalCrashHandler } from "./logsTelemetry";
- *   configureLogger({ baseUrl: "...", apiKey: "...", service: "miicel-mobile" });
- *   installGlobalCrashHandler(() => currentUserId);
- */
+// Reports uncaught JS exceptions via React Native's global handler. Call after configureLogger().
 export function installGlobalCrashHandler(getUserId: () => string | undefined): void {
   const g = globalThis as unknown as {
     ErrorUtils?: {

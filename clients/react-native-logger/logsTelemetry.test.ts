@@ -1,12 +1,4 @@
-/**
- * Local driver for logsTelemetry.ts - not a unit test framework, just a
- * script that exercises the real library against a running gateway
- * (docker-compose.observability.yml, or the network-simulation stack in
- * tests/network-simulation/), the same way the real React Native app would.
- *
- * Run with: npx ts-node logsTelemetry.test.ts [gatewayBaseUrl] [apiKey]
- * Defaults match docker-compose.observability.yml's local dev port/key.
- */
+// Local driver: npx ts-node logsTelemetry.test.ts [gatewayBaseUrl] [apiKey]
 
 import {
   configureLogger,
