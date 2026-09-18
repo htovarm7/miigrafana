@@ -30,3 +30,12 @@ providers:
     updateIntervalSeconds: 30
     options:
       path: /var/lib/grafana/dashboards/mobile-app
+
+  - name: MiiCel Web Faro Demo
+    orgId: 1
+    folder: "MiiCel/Web Faro Demo"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/web-demo

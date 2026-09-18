@@ -17,7 +17,26 @@ faro.receiver "default" {
 	}
 
 	output {
-		logs = [loki.write.default.receiver]
+		logs = [loki.process.default.receiver]
+	}
+}
+
+// Promotes Faro's app_name field to a real "app" stream label, so
+// {app="miicel-web-demo"} works the same way it already does for
+// Management/Users/Mobile App - without this, everything Faro sends lands
+// under Loki's default service_name="unknown_service" label instead, which
+// the other dashboards' queries don't expect.
+loki.process "default" {
+	forward_to = [loki.write.default.receiver]
+
+	stage.logfmt {
+		mapping = { "app_name" = "" }
+	}
+
+	stage.labels {
+		values = {
+			"app" = "app_name",
+		}
 	}
 }
 
