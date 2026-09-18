@@ -53,10 +53,7 @@ CODE=$(docker run --rm --network "$(net net-public-sim)" "$CURL_IMAGE" \
   -s -o /dev/null -w '%{http_code}' "http://grafana-gate:3000/login")
 pass_fail "4. grafana via gate, from public network" "403" "$CODE"
 
-# 5. Loki's own API, direct, from the public network -> not even reachable
-#    (Loki isn't attached to net-public-sim at all). curl's exit code 6 is
-#    "could not resolve host" - that IS the pass condition here, not an
-#    HTTP status code, since the name doesn't resolve on that network at all.
+# 5. Loki direct from the public network must not resolve (curl exit != 0).
 docker run --rm --network "$(net net-public-sim)" "$CURL_IMAGE" \
   -s -o /dev/null "http://loki:3100/loki/api/v1/query?query=%7Bapp%3D%22x%22%7D" >/dev/null 2>&1
 EXIT_CODE=$?
@@ -66,21 +63,6 @@ else
   echo "FAIL  5. loki direct, from public network (expected unreachable, but curl succeeded)"
   FAILURES=$((FAILURES + 1))
 fi
-
-# 6. Gateway's /collect route (Faro) + valid token, from the public network
-#    -> accepted by Alloy's faro.receiver.
-CODE=$(docker run --rm --network "$(net net-public-sim)" "$CURL_IMAGE" \
-  -s -o /dev/null -w '%{http_code}' -X POST "http://gateway:8080/collect" \
-  -H 'Content-Type: application/json' -H 'X-API-Key: network-sim-key' \
-  -d '{"traces":{},"logs":[],"exceptions":[],"measurements":[],"meta":{}}')
-pass_fail "6. gateway /collect + valid token, from public network" "202" "$CODE"
-
-# 7. Gateway's /collect route + missing token, from the public network ->
-#    rejected before it ever reaches Alloy.
-CODE=$(docker run --rm --network "$(net net-public-sim)" "$CURL_IMAGE" \
-  -s -o /dev/null -w '%{http_code}' -X POST "http://gateway:8080/collect" \
-  -H 'Content-Type: application/json' -d '{}')
-pass_fail "7. gateway /collect + missing token, from public network" "401" "$CODE"
 
 echo ""
 echo "== Tearing down =="

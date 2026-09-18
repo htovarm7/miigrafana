@@ -1,4 +1,5 @@
 services:
+  # Public token-gated entrypoint for external log sources (mobile app).
   gateway:
     image: nginx:1.27-alpine
     container_name: miicel-gateway
@@ -10,31 +11,6 @@ services:
       - "8081:8080"
     depends_on:
       - loki
-      - alloy
-    networks:
-      - default
-
-  # Receives telemetry from the Grafana Faro Web SDK (see
-  # clients/web-faro-demo/) and forwards it to Loki. Reachable directly on
-  # its own port for quick local debugging, AND through the gateway's
-  # /collect route (the path a real public web app would use) - both work
-  # locally, only the gateway route is meant to survive into production.
-  # See OBSERVABILIDAD.md, "Frontend telemetry with Grafana Faro (web only)".
-  alloy:
-    image: grafana/alloy:latest
-    container_name: miicel-alloy
-    command:
-      - run
-      - --server.http.listen-addr=0.0.0.0:12345
-      - /etc/alloy/config.alloy
-    volumes:
-      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
-    ports:
-      - "12347:12347"
-    depends_on:
-      - loki
-    networks:
-      - default
 
   loki:
     image: grafana/loki:3.2.1
@@ -44,7 +20,7 @@ services:
       - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
       - loki-data:/loki
     ports:
-      - "3200:3100"
+      - "3200:3100" # host 3200: 3100 is inside a Windows excluded port range
     networks:
       - default
       - miivida_vnet
@@ -67,20 +43,13 @@ services:
     image: grafana/grafana-oss:11.3.1
     container_name: miicel-grafana
     environment:
-      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ENABLED=true # local only, disabled in production overlay
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
-      # Provisions the Slack contact point (see observability/grafana/provisioning/alerting/contact-points.yaml).
-      # IMPORTANT: an empty value here makes Grafana refuse to start at all -
-      # its Slack integration validation requires "recipient" whenever "url"
-      # is empty, and this repo doesn't set one (webhook URLs don't need it).
-      # The placeholder below is a syntactically valid, non-functional Slack
-      # webhook URL - Grafana starts fine, delivery just 404s until the real
-      # value replaces it.
-      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/PLACEHOLDER/PLACEHOLDER/PLACEHOLDER}
     volumes:
-      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
@@ -100,4 +69,4 @@ volumes:
 networks:
   default: {}
   miivida_vnet:
-    external: true
+    external: true # shared with MiiCelBack; create once: docker network create miivida_vnet

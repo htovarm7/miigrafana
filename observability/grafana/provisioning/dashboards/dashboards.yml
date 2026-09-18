@@ -1,8 +1,6 @@
 apiVersion: 1
 
-# One provider per service, each in its own Grafana folder, so dashboards
-# scale cleanly as more services are added (see OBSERVABILIDAD.md). Matches
-# the on-disk layout under observability/grafana/dashboards/<service>/.
+# One provider/folder per service, matching observability/grafana/dashboards/<service>/.
 providers:
   - name: MiiCel Management
     orgId: 1
@@ -30,12 +28,3 @@ providers:
     updateIntervalSeconds: 30
     options:
       path: /var/lib/grafana/dashboards/mobile-app
-
-  - name: MiiCel Web Faro Demo
-    orgId: 1
-    folder: "MiiCel/Web Faro Demo"
-    type: file
-    disableDeletion: false
-    updateIntervalSeconds: 30
-    options:
-      path: /var/lib/grafana/dashboards/web-demo

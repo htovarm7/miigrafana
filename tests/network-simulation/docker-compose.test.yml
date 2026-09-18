@@ -1,14 +1,5 @@
-# Local stand-in for the real Azure network boundaries, so the access model
-# can be validated before any VM/VNet/WireGuard range actually exists. See
-# README.md in this folder and OBSERVABILIDAD.md's "External ingestion"
-# section for what each network represents.
-#
-# Run via run-test.sh, not `docker compose up` directly - the script also
-# runs the actual PASS/FAIL checks from ephemeral containers on each network.
-
+# Local stand-in for the Azure network boundaries. Run via run-test.sh.
 services:
-  # Stands in for "any App Service/VM inside the Azure VNet" - reaches Loki
-  # and Grafana directly, no token needed (private-network traffic).
   loki:
     image: grafana/loki:3.2.1
     command: -config.file=/etc/loki/loki-config.yml
@@ -24,38 +15,18 @@ services:
     networks:
       - net-vnet-sim
 
-  # Stands in for the public ingestion gateway - reachable from the
-  # simulated "public internet" network, but only forwards a request that
-  # carries the right token. Also reachable from net-vnet-sim so it can
-  # proxy to Loki and Alloy.
+  # Public gateway: reachable from the "internet", forwards only with a valid token.
   gateway:
     image: nginx:1.27-alpine
     environment:
       - GATEWAY_API_KEY=network-sim-key
     volumes:
       - ../../observability/nginx/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
-    depends_on:
-      - alloy
     networks:
       - net-vnet-sim
       - net-public-sim
 
-  # Faro's receiver - only reachable through the gateway's /collect route
-  # (checks 6/7 below), never directly from net-public-sim.
-  alloy:
-    image: grafana/alloy:latest
-    command:
-      - run
-      - --server.http.listen-addr=0.0.0.0:12345
-      - /etc/alloy/config.alloy
-    volumes:
-      - ../../observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
-    networks:
-      - net-vnet-sim
-
-  # Stands in for the Azure NSG rule that only lets the WireGuard range reach
-  # Grafana's port. Reachable from both simulated networks; only actually
-  # proxies through for requests whose source IP is in net-vpn-sim.
+  # Stands in for the NSG rule: only the VPN subnet may reach Grafana.
   grafana-gate:
     image: nginx:1.27-alpine
     volumes:
@@ -68,19 +39,15 @@ services:
       - net-public-sim
 
 networks:
-  # "The Azure VNet" - trusted, no token/gate needed for traffic that starts here.
-  net-vnet-sim:
+  net-vnet-sim: # Azure VNet
     ipam:
       config:
         - subnet: 172.30.1.0/24
-  # "WireGuard-connected admin clients" - allowed through to Grafana only.
-  net-vpn-sim:
+  net-vpn-sim: # WireGuard admin clients
     ipam:
       config:
         - subnet: 172.30.2.0/24
-  # "The public internet" (the React Native app, or anyone else) - can reach
-  # only the gateway's push endpoint, and only with a valid token.
-  net-public-sim:
+  net-public-sim: # public internet
     ipam:
       config:
         - subnet: 172.30.3.0/24
