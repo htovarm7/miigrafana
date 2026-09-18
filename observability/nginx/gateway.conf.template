@@ -1,8 +1,10 @@
 # Public ingestion gateway: the ONLY thing meant to be reachable from outside
 # the private network (see OBSERVABILIDAD.md, "External ingestion: the token
-# gateway"). It proxies exactly one route - the Loki push API - and rejects
-# anything that doesn't carry the right header. Everything else (Loki's query
-# API, Prometheus, Grafana) is never proxied through this container.
+# gateway"). It proxies exactly two routes - the Loki push API (mobile app /
+# any server-side caller) and the Faro collector (browser apps, via Alloy) -
+# and rejects anything on either route that doesn't carry the right header.
+# Everything else (Loki's query API, Prometheus, Grafana) is never proxied
+# through this container.
 #
 # Templated by the official nginx image's docker-entrypoint (envsubst runs
 # automatically on *.template files mounted under /etc/nginx/templates/).
@@ -18,6 +20,43 @@ server {
         }
 
         proxy_pass http://loki:3100/loki/api/v1/push;
+        proxy_set_header Host $host;
+        proxy_set_header Content-Type $content_type;
+    }
+
+    # Faro Web SDK's collector endpoint, proxied to Alloy's faro.receiver
+    # (see observability/alloy/config.alloy and clients/web-faro-demo/).
+    # This is called from an actual browser page on a different origin, so -
+    # unlike the route above - it needs to handle the CORS preflight
+    # (OPTIONS) itself: a preflight request never carries the app's custom
+    # X-API-Key header (browsers don't send it during preflight), so it has
+    # to be answered before the token check runs, or the browser never even
+    # attempts the real POST.
+    location = /collect {
+        if ($request_method = OPTIONS) {
+            add_header Access-Control-Allow-Origin "*" always;
+            add_header Access-Control-Allow-Methods "POST, OPTIONS" always;
+            # Wildcard, not a fixed list: the Faro Web SDK adds its own
+            # headers internally (e.g. X-Faro-Session-Id) beyond the ones
+            # this app sets explicitly, and a fixed allow-list broke on the
+            # first one found live (see git history) - "*" isn't compatible
+            # with credentialed requests, but nothing here uses cookies/auth
+            # credentials, so that restriction doesn't apply.
+            add_header Access-Control-Allow-Headers "*" always;
+            add_header Access-Control-Max-Age 86400 always;
+            return 204;
+        }
+
+        if ($http_x_api_key != "${GATEWAY_API_KEY}") {
+            return 401;
+        }
+
+        # No Access-Control-Allow-Origin added here on purpose: Alloy's own
+        # faro.receiver already sets it (cors_allowed_origins = ["*"] in
+        # config.alloy) on the actual proxied response. Adding it here too
+        # duplicated the header ("contains multiple values '*, *'"), which
+        # browsers reject outright.
+        proxy_pass http://alloy:12347/collect;
         proxy_set_header Host $host;
         proxy_set_header Content-Type $content_type;
     }

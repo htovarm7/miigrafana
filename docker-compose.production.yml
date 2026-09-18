@@ -3,6 +3,15 @@ services:
     ports:
       - "8081:8080"
 
+  # Only reachable through the gateway's /collect route in production - not
+  # published on any public or VNet interface. Container-to-container
+  # traffic (gateway -> alloy) uses the internal Docker network regardless
+  # of this binding; loopback-only just keeps the host itself from exposing
+  # it directly.
+  alloy:
+    ports:
+      - "127.0.0.1:12347:12347"
+
   loki:
     ports:
       - "${PRIVATE_IP}:3100:3100"

@@ -10,13 +10,16 @@ services:
       - "8081:8080"
     depends_on:
       - loki
+      - alloy
     networks:
       - default
 
   # Receives telemetry from the Grafana Faro Web SDK (see
-  # clients/web-faro-demo/) and forwards it to Loki. Local demo only - not
-  # exposed publicly, not part of docker-compose.production.yml yet. See
-  # OBSERVABILIDAD.md, "Frontend telemetry with Grafana Faro (web only)".
+  # clients/web-faro-demo/) and forwards it to Loki. Reachable directly on
+  # its own port for quick local debugging, AND through the gateway's
+  # /collect route (the path a real public web app would use) - both work
+  # locally, only the gateway route is meant to survive into production.
+  # See OBSERVABILIDAD.md, "Frontend telemetry with Grafana Faro (web only)".
   alloy:
     image: grafana/alloy:latest
     container_name: miicel-alloy
