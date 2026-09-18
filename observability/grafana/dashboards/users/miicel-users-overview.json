@@ -11,15 +11,15 @@
       {
         "name": "search",
         "type": "textbox",
-        "label": "Buscar en logs (regex)",
+        "label": "Search logs (regex)",
         "query": ".*",
         "current": { "text": ".*", "value": ".*" }
       },
       {
         "name": "userId",
         "type": "textbox",
-        "label": "UserId (auditoria)",
-        "description": "Filtra el panel de auditoria por el UserId del claim JWT. Dejar en .+ para ver todos los usuarios.",
+        "label": "UserId (audit)",
+        "description": "Filters the audit panel by UserId. Use .+ for all users.",
         "query": ".+",
         "current": { "text": ".+", "value": ".+" }
       }
@@ -28,7 +28,7 @@
   "panels": [
     {
       "id": 1,
-      "title": "Servicio arriba/abajo",
+      "title": "Service up/down",
       "type": "stat",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
@@ -51,7 +51,7 @@
     },
     {
       "id": 2,
-      "title": "Requests por endpoint (req/s)",
+      "title": "Requests per endpoint (req/s)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
@@ -65,7 +65,7 @@
     },
     {
       "id": 3,
-      "title": "Tasa de error 5xx por endpoint (req/s)",
+      "title": "5xx error rate per endpoint (req/s)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
@@ -80,7 +80,7 @@
     },
     {
       "id": 4,
-      "title": "Latencia p95 por endpoint (s)",
+      "title": "p95 latency per endpoint (s)",
       "type": "timeseries",
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
@@ -113,7 +113,7 @@
     },
     {
       "id": 5,
-      "title": "Todos los logs",
+      "title": "All logs",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
@@ -132,8 +132,8 @@
     },
     {
       "id": 7,
-      "title": "Auditoria: que hizo el usuario $userId antes de fallar",
-      "description": "Solo errores (level=error), filtrados por UserId. Requiere que Users tenga el mismo enriquecimiento de UserId/Endpoint que Management (ver OBSERVABILIDAD.md).",
+      "title": "Audit: what user $userId did before failing",
+      "description": "Errors only, filtered by UserId.",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },

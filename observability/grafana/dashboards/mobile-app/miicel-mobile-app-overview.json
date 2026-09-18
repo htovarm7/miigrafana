@@ -11,23 +11,23 @@
       {
         "name": "search",
         "type": "textbox",
-        "label": "Buscar en logs (regex)",
+        "label": "Search logs (regex)",
         "query": ".*",
         "current": { "text": ".*", "value": ".*" }
       },
       {
         "name": "userId",
         "type": "textbox",
-        "label": "UserId (auditoria)",
-        "description": "Filtra el panel de auditoria por UserId. Dejar en .+ para ver todos los usuarios.",
+        "label": "UserId (audit)",
+        "description": "Filters the audit panel by UserId. Use .+ for all users.",
         "query": ".+",
         "current": { "text": ".+", "value": ".+" }
       },
       {
         "name": "correlationId",
         "type": "textbox",
-        "label": "CorrelationId (rastro de una sesion/operacion)",
-        "description": "Deja en .+ para ver todo, o pega un CorrelationId especifico para ver el rastro completo de esa sesion/operacion.",
+        "label": "CorrelationId (trace of one session/operation)",
+        "description": "Use .+ for everything, or paste one CorrelationId to see that operation only.",
         "query": ".+",
         "current": { "text": ".+", "value": ".+" }
       }
@@ -36,13 +36,12 @@
   "panels": [
     {
       "id": 1,
-      "title": "No hay metricas de Prometheus para este servicio",
-      "description": "El app movil no expone /metrics ni corre en un servidor que Prometheus pueda scrapear - a diferencia de Management/Users, este dashboard es solo de logs (Loki), enviados via el gateway publico (ver OBSERVABILIDAD.md).",
+      "title": "No Prometheus metrics for this service",
       "type": "text",
       "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
       "options": {
         "mode": "markdown",
-        "content": "No metrics for this service - mobile-app logs arrive through the public ingestion gateway, not scraped by Prometheus. See **OBSERVABILIDAD.md > External ingestion: the token gateway**."
+        "content": "Mobile app logs arrive through the gateway (POST /loki/api/v1/push), not scraped by Prometheus."
       }
     },
     {
@@ -66,7 +65,7 @@
     },
     {
       "id": 3,
-      "title": "Todos los logs",
+      "title": "All logs",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 },
@@ -85,8 +84,8 @@
     },
     {
       "id": 4,
-      "title": "Auditoria: que hizo el usuario $userId antes de fallar",
-      "description": "Solo errores (level=error), filtrados por UserId. Cada linea trae Service/Reason/CorrelationId/Stage segun el estandar de OBSERVABILIDAD.md.",
+      "title": "Audit: what user $userId did before failing",
+      "description": "Errors only, filtered by UserId.",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 19 },
@@ -105,8 +104,8 @@
     },
     {
       "id": 5,
-      "title": "Rastro completo de una sesion/operacion ($correlationId)",
-      "description": "Todas las lineas (cualquier nivel) que comparten el mismo CorrelationId - el paso a paso de una sola operacion, sin importar si fallo o no.",
+      "title": "Full trace of one session/operation ($correlationId)",
+      "description": "Every line sharing the same CorrelationId, any level.",
       "type": "logs",
       "datasource": { "type": "loki", "uid": "loki" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 27 },
