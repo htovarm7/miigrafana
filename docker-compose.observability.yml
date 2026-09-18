@@ -13,6 +13,26 @@ services:
     networks:
       - default
 
+  # Receives telemetry from the Grafana Faro Web SDK (see
+  # clients/web-faro-demo/) and forwards it to Loki. Local demo only - not
+  # exposed publicly, not part of docker-compose.production.yml yet. See
+  # OBSERVABILIDAD.md, "Frontend telemetry with Grafana Faro (web only)".
+  alloy:
+    image: grafana/alloy:latest
+    container_name: miicel-alloy
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+    ports:
+      - "12347:12347"
+    depends_on:
+      - loki
+    networks:
+      - default
+
   loki:
     image: grafana/loki:3.2.1
     container_name: miicel-loki
@@ -48,6 +68,14 @@ services:
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      # Provisions the Slack contact point (see observability/grafana/provisioning/alerting/contact-points.yaml).
+      # IMPORTANT: an empty value here makes Grafana refuse to start at all -
+      # its Slack integration validation requires "recipient" whenever "url"
+      # is empty, and this repo doesn't set one (webhook URLs don't need it).
+      # The placeholder below is a syntactically valid, non-functional Slack
+      # webhook URL - Grafana starts fine, delivery just 404s until the real
+      # value replaces it.
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/PLACEHOLDER/PLACEHOLDER/PLACEHOLDER}
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro

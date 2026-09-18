@@ -9,6 +9,7 @@ It's a self-contained demo endpoint — it doesn't touch any real business flow 
 **Related demos**:
 - [`../clients/react-native-logger/`](../clients/react-native-logger/) — the same standard, implemented in TypeScript for the React Native mobile app, going through the public token gateway instead of a direct in-network request. Run `npm run test:local` there for the same kind of trace, but for `{app="miicel-mobile"}`.
 - [`../tests/network-simulation/`](network-simulation/) — validates the network access model (public token gateway vs. VPN-only Grafana) that the mobile app's traffic goes through, before any real VM/VNet exists.
+- [`../clients/web-faro-demo/`](../clients/web-faro-demo/) — a standalone page showing Grafana's own Faro Web SDK shipping browser telemetry (logs, errors with stack traces, web-vitals) through Alloy into Loki — worth comparing against the manual `UserId`/`Stage`/`Reason` approach above.
 
 ## Case 1: all stages succeed
 

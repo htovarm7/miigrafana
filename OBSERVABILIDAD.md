@@ -294,3 +294,31 @@ Any external caller — any language, any stack, no Docker/VM of its own require
 - The actual Azure VM/VNet/WireGuard range/Cloudflare DNS record — infra done outside these repos.
 - TLS on the public gateway — a real deployment should terminate HTTPS somewhere in front of it (Cloudflare, an Azure load balancer, or a cert on nginx itself), depending on how the rest of the Azure setup already handles TLS.
 - Wiring `MiiCelBack`'s `appsettings.Production.json`/`.Staging.json` (neither exists yet) to point at miigrafana's private IP — flagged as a prerequisite for whoever deploys `MiiCelBack` to that VM, not implemented in this repo.
+
+## Frontend telemetry with Grafana Faro (web only)
+
+[Grafana Faro](https://github.com/grafana/faro-web-sdk) is Grafana's own browser RUM (real user monitoring) SDK — worth knowing about since it does, for free, a lot of what `clients/react-native-logger/logsTelemetry.ts` does by hand: structured logs/errors with full stack traces, plus things that library doesn't attempt at all (web-vitals, session/browser metadata, automatic fetch/XHR correlation). Two facts decided how far this goes right now:
+
+**Faro doesn't push to Loki directly.** It posts to a *Faro receiver*, normally Grafana Alloy's `faro.receiver` component, which then forwards to Loki. So adopting Faro for a web app means running Alloy as an additional container, not just adding a script tag — see `observability/alloy/config.alloy` and the `alloy` service in `docker-compose.observability.yml`.
+
+**There is an experimental React Native port** (`@grafana/faro-react-native`, [grafana/faro-react-native-sdk](https://github.com/grafana/faro-react-native-sdk)), but it requires native modules (CocoaPods/Gradle autolinking) and the project itself is labeled experimental. `logsTelemetry.ts` is already built, dependency-free, and verified working end-to-end — it stays the mobile solution. Faro for React Native is a future option to revisit once the port matures, not something to swap in now for something that already works.
+
+**So, for now**: Faro is a web-only prototype. `clients/web-faro-demo/` is a standalone demo page (not a real MiiCel webapp — there isn't one in these repos) proving the integration end-to-end: `@grafana/faro-web-sdk` (loaded via CDN, no build step) → Alloy's `faro.receiver` → Loki, tagging custom context with the same `UserId`/`Service`/`Reason`/`CorrelationId` fields as everything else, on top of everything Faro captures automatically. See that folder's README for how to run it and its "known gap" note (its logs aren't yet labeled `app="..."` the way the other dashboards expect — a relabeling step in `config.alloy`, not implemented yet since this is a proof-of-concept, not a shipped dashboard).
+
+Not implemented: a public/gated route for Alloy (would need its own path in the gateway, deliberately, without touching the mobile app's existing `/loki/api/v1/push` route — see the network-simulation test's assertion that nothing else is proxied), inclusion in `docker-compose.production.yml`, or a dedicated Grafana dashboard for this source.
+
+## Alerting: Slack as a contact point
+
+### What to request from whoever owns the Slack workspace
+
+Ask for an **Incoming Webhook URL** for a specific channel (name it, e.g. `#miicel-alertas`) — not a bot token. They get it from [api.slack.com/apps](https://api.slack.com/apps) → their Slack app → **Incoming Webhooks** → **Add New Webhook to Workspace** → pick the channel → copy the URL (`https://hooks.slack.com/services/...`). This is the simplest option: one URL, already scoped to one channel, nothing to negotiate on OAuth scopes. Grafana also supports a bot-token method (`Recipient` = channel ID + `Token` = `xoxb-...` bot token) if the team already has a Slack app with `chat:write` installed, but the webhook is less setup for the same result.
+
+### How it's configured
+
+`observability/grafana/provisioning/alerting/contact-points.yaml` provisions a Slack contact point named "Slack - MiiCel alerts", reading the webhook URL from the `SLACK_WEBHOOK_URL` environment variable via Grafana's own **native** `$variable` interpolation in provisioning files (confirmed against the current Grafana docs — no custom templating/envsubst step needed here, unlike the nginx gateway's config). Set the real value in whichever `docker-compose.*.yml`'s `grafana` service environment, or a `.env` file — never commit the real webhook URL.
+
+**A real gotcha found while building this**: if `SLACK_WEBHOOK_URL` is unset/empty, Grafana doesn't just skip the contact point — it **refuses to start entirely**, because its Slack integration validation requires a `recipient` whenever `url` resolves to empty (the "Slack chat API" path). `docker-compose.observability.yml` defaults `SLACK_WEBHOOK_URL` to a syntactically valid but non-functional placeholder (`https://hooks.slack.com/services/PLACEHOLDER/PLACEHOLDER/PLACEHOLDER`) specifically to avoid this — Grafana starts fine, the contact point just 404s until the real URL replaces it.
+
+### How to test it, and how to actually use it
+
+In Grafana → **Alerting** → **Contact points** → "Slack - MiiCel alerts" → **Test** sends a real test notification through it — the fastest way to confirm the webhook URL is correct. To actually route alerts there, either set it as the default in **Notification policies**, or select it per alert rule. No alert rules are provisioned in this repo yet — that's a separate, later step once there's something worth alerting on (e.g. the error-rate panels already in the Management/Users dashboards).

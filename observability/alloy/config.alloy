@@ -1,0 +1,28 @@
+// Receives telemetry from the Grafana Faro Web SDK (browser apps) and
+// forwards it to Loki. Faro does not push to Loki directly - it always needs
+// a receiver like this one in front. See OBSERVABILIDAD.md, "Frontend
+// telemetry with Grafana Faro (web only)".
+//
+// Local demo only for now: not exposed through the public gateway, not part
+// of docker-compose.production.yml. A real public webapp would need its own
+// gated route in front of this, the same way the mobile app's logs go
+// through observability/nginx/gateway.conf.template - not done here since
+// this is a prototype to see the integration work, not a production path
+// yet (see clients/web-faro-demo/README.md).
+faro.receiver "default" {
+	server {
+		listen_address       = "0.0.0.0"
+		listen_port          = 12347
+		cors_allowed_origins = ["*"]
+	}
+
+	output {
+		logs = [loki.write.default.receiver]
+	}
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki:3100/loki/api/v1/push"
+	}
+}
