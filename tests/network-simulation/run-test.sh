@@ -67,6 +67,21 @@ else
   FAILURES=$((FAILURES + 1))
 fi
 
+# 6. Gateway's /collect route (Faro) + valid token, from the public network
+#    -> accepted by Alloy's faro.receiver.
+CODE=$(docker run --rm --network "$(net net-public-sim)" "$CURL_IMAGE" \
+  -s -o /dev/null -w '%{http_code}' -X POST "http://gateway:8080/collect" \
+  -H 'Content-Type: application/json' -H 'X-API-Key: network-sim-key' \
+  -d '{"traces":{},"logs":[],"exceptions":[],"measurements":[],"meta":{}}')
+pass_fail "6. gateway /collect + valid token, from public network" "202" "$CODE"
+
+# 7. Gateway's /collect route + missing token, from the public network ->
+#    rejected before it ever reaches Alloy.
+CODE=$(docker run --rm --network "$(net net-public-sim)" "$CURL_IMAGE" \
+  -s -o /dev/null -w '%{http_code}' -X POST "http://gateway:8080/collect" \
+  -H 'Content-Type: application/json' -d '{}')
+pass_fail "7. gateway /collect + missing token, from public network" "401" "$CODE"
+
 echo ""
 echo "== Tearing down =="
 docker compose -p "$PROJECT" -f docker-compose.test.yml down
