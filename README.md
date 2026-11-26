@@ -88,6 +88,8 @@ Log each failure once (don't re-log when rethrowing). Set `Microsoft.AspNetCore`
 
 ## Mobile app / external sources
 
+Field and event names for the app are in [docs/log-format.md](docs/log-format.md).
+
 The gateway is the only public endpoint. Send Loki push JSON to `POST /loki/api/v1/push` with header `X-API-Key: <GATEWAY_API_KEY>`. See [clients/react-native-logger](clients/react-native-logger/README.md).
 
 ## Production
