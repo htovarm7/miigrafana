@@ -1,19 +1,61 @@
 {
   "title": "MiiCel Back - Mobile App (React Native)",
   "uid": "miicel-mobile-app-overview",
+  "tags": [
+    "miicel",
+    "mobile"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 3,
   "refresh": "10s",
-  "time": { "from": "now-1h", "to": "now" },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "annotations": {
+    "list": []
+  },
   "templating": {
     "list": [
+      {
+        "name": "env",
+        "type": "custom",
+        "label": "Environment",
+        "query": "qa,dev,prod",
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": []
+      },
+      {
+        "name": "platform",
+        "type": "custom",
+        "label": "Platform",
+        "query": "android,ios",
+        "includeAll": true,
+        "allValue": ".+",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": []
+      },
       {
         "name": "search",
         "type": "textbox",
         "label": "Search logs (regex)",
+        "description": "Filters the log panels.",
         "query": ".*",
-        "current": { "text": ".*", "value": ".*" }
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        }
       },
       {
         "name": "userId",
@@ -21,104 +63,895 @@
         "label": "UserId (audit)",
         "description": "Filters the audit panel by UserId. Use .+ for all users.",
         "query": ".+",
-        "current": { "text": ".+", "value": ".+" }
+        "current": {
+          "text": ".+",
+          "value": ".+"
+        }
       },
       {
         "name": "correlationId",
         "type": "textbox",
-        "label": "CorrelationId (trace of one session/operation)",
-        "description": "Use .+ for everything, or paste one CorrelationId to see that operation only.",
+        "label": "CorrelationId (session trace)",
+        "description": "Use .+ for everything, or paste one CorrelationId.",
         "query": ".+",
-        "current": { "text": ".+", "value": ".+" }
+        "current": {
+          "text": ".+",
+          "value": ".+"
+        }
       }
     ]
   },
   "panels": [
     {
       "id": 1,
-      "title": "No Prometheus metrics for this service",
-      "type": "text",
-      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "title": "Errors",
+      "description": "Lines with level=error in the selected range.",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        },
+        "overrides": []
+      },
       "options": {
-        "mode": "markdown",
-        "content": "Mobile app logs arrive through the gateway (POST /loki/api/v1/push), not scraped by Prometheus."
-      }
-    },
-    {
-      "id": 2,
-      "title": "Errores (level=error)",
-      "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 3 },
-      "options": {
-        "showTime": true,
-        "showLabels": true,
-        "wrapLogMessages": true,
-        "sortOrder": "Descending"
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{app=\"miicel-mobile\"} | json | level=\"error\" |~ \"$search\""
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"error\" [$__range])) or vector(0)",
+          "refId": "A",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Warnings",
+      "description": "Lines with level=warning (HTTP 4xx).",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"warning\" [$__range])) or vector(0)",
+          "refId": "A",
+          "queryType": "instant"
         }
       ]
     },
     {
       "id": 3,
-      "title": "All logs",
-      "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 11 },
+      "title": "Crashes",
+      "description": "Fatal crashes, render errors and unhandled rejections.",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "dark-red"
+          }
+        },
+        "overrides": []
+      },
       "options": {
-        "showTime": true,
-        "showLabels": true,
-        "wrapLogMessages": true,
-        "sortOrder": "Descending"
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{app=\"miicel-mobile\"} |~ \"$search\""
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=~\"app.crash|app.render_error|app.unhandled_rejection\" [$__range])) or vector(0)",
+          "refId": "A",
+          "queryType": "instant"
         }
       ]
     },
     {
       "id": 4,
-      "title": "Audit: what user $userId did before failing",
-      "description": "Errors only, filtered by UserId.",
-      "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 19 },
+      "title": "HTTP 5xx",
+      "description": "Server errors (5xx) seen by the app.",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          }
+        },
+        "overrides": []
+      },
       "options": {
-        "showTime": true,
-        "showLabels": true,
-        "wrapLogMessages": true,
-        "sortOrder": "Descending"
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{app=\"miicel-mobile\"} | json | level=\"error\" | UserId=~\"$userId\""
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Status>=500 [$__range])) or vector(0)",
+          "refId": "A",
+          "queryType": "instant"
         }
       ]
     },
     {
       "id": 5,
-      "title": "Full trace of one session/operation ($correlationId)",
-      "description": "Every line sharing the same CorrelationId, any level.",
-      "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 27 },
+      "title": "Sessions",
+      "description": "App launches.",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
       "options": {
-        "showTime": true,
-        "showLabels": true,
-        "wrapLogMessages": true,
-        "sortOrder": "Ascending"
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
-          "expr": "{app=\"miicel-mobile\"} | json | CorrelationId=~\"$correlationId\""
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum(count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=\"app.start\" [$__range])) or vector(0)",
+          "refId": "A",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Active users",
+      "description": "Distinct UserId with logs.",
+      "type": "stat",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "0",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "count(sum by (UserId) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | UserId!=\"\" [$__range]))) or vector(0)",
+          "refId": "A",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Logs by level",
+      "description": "Volume per level over time.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "warning"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "info"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (level) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" [$__interval]))",
+          "refId": "A",
+          "legendFormat": "{{level}}"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "HTTP errors by status",
+      "description": "API errors per status code.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "stacking": {
+              "mode": "normal"
+            }
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "warning"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "info"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (Status) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Status>=400 [$__interval]))",
+          "refId": "A",
+          "legendFormat": "{{Status}}"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Top failing endpoints",
+      "description": "Endpoints with most errors/warnings.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "continuous-YlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "topk(10, sum by (Endpoint) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Endpoint!=\"\" | level=~\"error|warning\" [$__range])))",
+          "refId": "A",
+          "legendFormat": "{{Endpoint}}",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Errors by stage",
+      "description": "Where in the app errors happen.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "continuous-YlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "topk(10, sum by (Stage) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"error\" | Stage!=\"\" [$__range])))",
+          "refId": "A",
+          "legendFormat": "{{Stage}}",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Sessions by platform",
+      "description": "Android vs iOS launches.",
+      "type": "piechart",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 12
+      },
+      "options": {
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "list",
+          "placement": "right"
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "sum by (platform) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=\"app.start\" [$__range]))",
+          "refId": "A",
+          "legendFormat": "{{platform}}",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Crashes",
+      "description": "Crashes, render errors and unhandled promise rejections, with Breadcrumbs and Stack.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessages": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=~\"app.crash|app.render_error|app.unhandled_rejection\" |~ \"$search\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Errors (level=error)",
+      "description": "All error lines.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessages": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"error\" |~ \"$search\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Audit: what user $userId did before failing",
+      "description": "Errors and warnings filtered by UserId.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessages": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | UserId=~\"$userId\" | level=~\"error|warning\" |~ \"$search\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Full trace of one session ($correlationId)",
+      "description": "Every line of one app session, any level.",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 52
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessages": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | CorrelationId=~\"$correlationId\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Errors by process",
+      "description": "Which business process fails most (auth, loans, accounts...).",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 20
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "continuous-YlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "topk(10, sum by (Flow) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Flow!=\"\" | level=~\"error|warning\" [$__range])))",
+          "refId": "A",
+          "legendFormat": "{{Flow}}",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Slowest endpoints (p95 ms)",
+      "description": "p95 duration of successful API calls.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 20
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "continuous-YlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "topk(10, quantile_over_time(0.95, {app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=\"api.request\" | unwrap DurationMs [$__range]) by (Endpoint))",
+          "refId": "A",
+          "legendFormat": "{{Endpoint}}",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Most visited screens",
+      "description": "Screen views.",
+      "type": "bargauge",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 20
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "continuous-YlRd"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "topk(10, sum by (Stage) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=\"nav.screen\" [$__range])))",
+          "refId": "A",
+          "legendFormat": "{{Stage}}",
+          "queryType": "instant"
         }
       ]
     }
