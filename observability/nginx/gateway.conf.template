@@ -2,6 +2,8 @@
 server {
     listen 8080;
 
+    # GATEWAY_API_KEY is injected by the nginx image's envsubst templating.
+
     location = /loki/api/v1/push {
         if ($http_x_api_key != "${GATEWAY_API_KEY}") {
             return 401;
