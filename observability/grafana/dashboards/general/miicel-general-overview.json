@@ -35,7 +35,7 @@
     {
       "id": 1,
       "title": "APIs up",
-      "description": "Number of API services answering /metrics.",
+      "description": "APIs answering /metrics (expected: 2). Red = none, yellow = one.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -52,8 +52,24 @@
           "unit": "short",
           "noValue": "0",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "green"
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
+              }
+            ]
           }
         },
         "overrides": []
@@ -99,8 +115,20 @@
           "unit": "short",
           "noValue": "0",
           "color": {
-            "mode": "fixed",
-            "fixedColor": "red"
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.001
+              }
+            ]
           }
         },
         "overrides": []
@@ -268,11 +296,18 @@
           "id": "organize",
           "options": {
             "excludeByName": {
-              "Time": true
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "app": true
             },
             "renameByName": {
               "job": "Service",
               "Value": "Status"
+            },
+            "indexByName": {
+              "job": 0,
+              "Value": 1
             }
           }
         }

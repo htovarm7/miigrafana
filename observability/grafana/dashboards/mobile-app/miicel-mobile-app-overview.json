@@ -579,8 +579,14 @@
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
-        }
+          ],
+          "values": false
+        },
+        "namePlacement": "left",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizHeight": 16,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -591,7 +597,7 @@
           "expr": "topk(10, sum by (Endpoint) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Endpoint!=\"\" | level=~\"error|warning\" [$__range])))",
           "refId": "A",
           "legendFormat": "{{Endpoint}}",
-          "queryType": "instant"
+          "queryType": "range"
         }
       ]
     },
@@ -626,8 +632,14 @@
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
-        }
+          ],
+          "values": false
+        },
+        "namePlacement": "left",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizHeight": 16,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -638,7 +650,7 @@
           "expr": "topk(10, sum by (Stage) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"error\" | Stage!=\"\" [$__range])))",
           "refId": "A",
           "legendFormat": "{{Stage}}",
-          "queryType": "instant"
+          "queryType": "range"
         }
       ]
     },
@@ -660,13 +672,17 @@
       "options": {
         "pieType": "donut",
         "legend": {
-          "displayMode": "list",
-          "placement": "right"
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value"
+          ]
         },
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
+          ],
+          "values": false
         }
       },
       "targets": [
@@ -678,7 +694,7 @@
           "expr": "sum by (platform) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=\"app.start\" [$__range]))",
           "refId": "A",
           "legendFormat": "{{platform}}",
-          "queryType": "instant"
+          "queryType": "range"
         }
       ]
     },
@@ -711,7 +727,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=~\"app.crash|app.render_error|app.unhandled_rejection\" |~ \"$search\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.platform}} {{.AppVersion}} | pantalla: {{.Screen | default \"-\"}}{{ \"\\n\" }}  motivo: {{.Reason}}{{if .ErrorName}} ({{.ErrorName}}){{end}}{{if .Endpoint}}{{ \"\\n\" }}  api: {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}{{if .Stack}}{{ \"\\n\" }}  stack: {{.Stack}}{{end}}{{if .Breadcrumbs}}{{ \"\\n\" }}  pasos previos: {{.Breadcrumbs}}{{end}}`",
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=~\"app.crash|app.render_error|app.unhandled_rejection\" | Reason=~\".*$search.*\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.platform}} {{.AppVersion}} | pantalla: {{.Screen | default \"-\"}}{{ \"\\n\" }}  motivo: {{.Reason}}{{if .ErrorName}} ({{.ErrorName}}){{end}}{{if .Endpoint}}{{ \"\\n\" }}  api: {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}{{if .Stack}}{{ \"\\n\" }}  stack: {{.Stack}}{{end}}{{if .Breadcrumbs}}{{ \"\\n\" }}  pasos previos: {{.Breadcrumbs}}{{end}}`",
           "refId": "A"
         }
       ]
@@ -745,7 +761,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"error\" |~ \"$search\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.platform}} {{.AppVersion}} | pantalla: {{.Screen | default \"-\"}}{{ \"\\n\" }}  motivo: {{.Reason}}{{if .ErrorName}} ({{.ErrorName}}){{end}}{{if .Endpoint}}{{ \"\\n\" }}  api: {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}{{if .Stack}}{{ \"\\n\" }}  stack: {{.Stack}}{{end}}{{if .Breadcrumbs}}{{ \"\\n\" }}  pasos previos: {{.Breadcrumbs}}{{end}}`",
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"error\" | Reason=~\".*$search.*\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.platform}} {{.AppVersion}} | pantalla: {{.Screen | default \"-\"}}{{ \"\\n\" }}  motivo: {{.Reason}}{{if .ErrorName}} ({{.ErrorName}}){{end}}{{if .Endpoint}}{{ \"\\n\" }}  api: {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}{{if .Stack}}{{ \"\\n\" }}  stack: {{.Stack}}{{end}}{{if .Breadcrumbs}}{{ \"\\n\" }}  pasos previos: {{.Breadcrumbs}}{{end}}`",
           "refId": "A"
         }
       ]
@@ -779,7 +795,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | UserId=~\"$userId\" | level=~\"error|warning\" |~ \"$search\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.Screen | default \"-\"}} | {{.Reason}}{{if .Endpoint}} | {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}`",
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | UserId=~\"$userId\" | level=~\"error|warning\" | Reason=~\".*$search.*\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.Screen | default \"-\"}} | {{.Reason}}{{if .Endpoint}} | {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}`",
           "refId": "A"
         }
       ]
@@ -849,8 +865,14 @@
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
-        }
+          ],
+          "values": false
+        },
+        "namePlacement": "left",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizHeight": 16,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -861,7 +883,7 @@
           "expr": "topk(10, sum by (Flow) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Flow!=\"\" | level=~\"error|warning\" [$__range])))",
           "refId": "A",
           "legendFormat": "{{Flow}}",
-          "queryType": "instant"
+          "queryType": "range"
         }
       ]
     },
@@ -882,7 +904,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "ms",
           "noValue": "No data",
           "color": {
             "mode": "continuous-YlRd"
@@ -896,8 +918,14 @@
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
-        }
+          ],
+          "values": false
+        },
+        "namePlacement": "left",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizHeight": 16,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -908,7 +936,7 @@
           "expr": "topk(10, quantile_over_time(0.95, {app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=\"api.request\" | unwrap DurationMs [$__range]) by (Endpoint))",
           "refId": "A",
           "legendFormat": "{{Endpoint}}",
-          "queryType": "instant"
+          "queryType": "range"
         }
       ]
     },
@@ -943,8 +971,14 @@
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
-          ]
-        }
+          ],
+          "values": false
+        },
+        "namePlacement": "left",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "minVizHeight": 16,
+        "sizing": "auto"
       },
       "targets": [
         {
@@ -955,7 +989,7 @@
           "expr": "topk(10, sum by (Stage) (count_over_time({app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=\"nav.screen\" [$__range])))",
           "refId": "A",
           "legendFormat": "{{Stage}}",
-          "queryType": "instant"
+          "queryType": "range"
         }
       ]
     }
