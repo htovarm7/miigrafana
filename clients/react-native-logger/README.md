@@ -32,7 +32,7 @@ Query in Grafana → Explore → Loki: `{app="miicel-mobile"} | json | UserId="1
 
 ## Dashboard
 
-`observability/grafana/dashboards/mobile-app/miicel-mobile-app-overview.json` is provisioned automatically (folder `MiiCel/Mobile App`). Variables: environment, platform, search, UserId, CorrelationId.
+`observability/grafana/dashboards/mobile-app/miicel-mobile-app-overview.json` is provisioned automatically (folder `MiiCaja Mobile`). Variables: environment, platform, search, UserId, CorrelationId.
 
 | Section | Panels |
 |---|---|

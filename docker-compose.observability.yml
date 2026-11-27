@@ -45,6 +45,7 @@ services:
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true # local only, disabled in production overlay
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/general/miicel-general-overview.json
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin # local only, overridden in production overlay
     volumes:

@@ -1,5 +1,5 @@
 {
-  "title": "MiiCel Back - Mobile App (React Native)",
+  "title": "MiiCaja Mobile - App Overview",
   "uid": "miicel-mobile-app-overview",
   "tags": [
     "miicel",
@@ -958,6 +958,18 @@
           "queryType": "instant"
         }
       ]
+    }
+  ],
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "MiiCel dashboards",
+      "tags": [
+        "miicel"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
     }
   ]
 }

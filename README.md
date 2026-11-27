@@ -13,11 +13,22 @@ observability/
   nginx/gateway.conf.template      Public gateway: only POST /loki/api/v1/push with X-API-Key
   grafana/
     provisioning/datasources/      Prometheus + Loki datasources (uids: prometheus, loki)
-    provisioning/dashboards/       One provider/folder per service
-    dashboards/<service>/*.json    Dashboards: management, users, mobile-app
+    provisioning/dashboards/       One provider/folder per area
+    dashboards/<area>/*.json       Dashboards: general (home), mobile-app, users, management
 clients/react-native-logger/       Logger to copy into the mobile app
 tests/network-simulation/          Local check of the public/VPN/private access model
 ```
+
+## Dashboards
+
+| Folder | Dashboard | Shows |
+|---|---|---|
+| MiiCel - General | MiiCel - General Overview (Grafana home) | Health of every service, errors by application, latest errors |
+| MiiCaja Mobile | MiiCaja Mobile - App Overview | App sessions, crashes, API errors, slow endpoints, audit |
+| MiiCel API - Users | MiiCel API Users - Overview | Users API requests, 5xx, latency, logs |
+| MiiCel API - Management | MiiCel API Management - Overview | Management API requests, 5xx, latency, logs |
+
+All dashboards have a `MiiCel dashboards` dropdown to jump between them.
 
 ## Run
 
