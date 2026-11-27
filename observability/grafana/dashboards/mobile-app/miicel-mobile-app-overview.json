@@ -7,7 +7,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "refresh": "10s",
   "time": {
     "from": "now-1h",
@@ -702,7 +702,8 @@
         "showLabels": false,
         "wrapLogMessages": true,
         "sortOrder": "Descending",
-        "enableLogDetails": true
+        "enableLogDetails": true,
+        "prettifyLogMessage": false
       },
       "targets": [
         {
@@ -710,7 +711,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=~\"app.crash|app.render_error|app.unhandled_rejection\" |~ \"$search\"",
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | Event=~\"app.crash|app.render_error|app.unhandled_rejection\" |~ \"$search\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.platform}} {{.AppVersion}} | pantalla: {{.Screen | default \"-\"}}{{ \"\\n\" }}  motivo: {{.Reason}}{{if .ErrorName}} ({{.ErrorName}}){{end}}{{if .Endpoint}}{{ \"\\n\" }}  api: {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}{{if .Stack}}{{ \"\\n\" }}  stack: {{.Stack}}{{end}}{{if .Breadcrumbs}}{{ \"\\n\" }}  pasos previos: {{.Breadcrumbs}}{{end}}`",
           "refId": "A"
         }
       ]
@@ -735,7 +736,8 @@
         "showLabels": false,
         "wrapLogMessages": true,
         "sortOrder": "Descending",
-        "enableLogDetails": true
+        "enableLogDetails": true,
+        "prettifyLogMessage": false
       },
       "targets": [
         {
@@ -743,7 +745,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"error\" |~ \"$search\"",
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | level=\"error\" |~ \"$search\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.platform}} {{.AppVersion}} | pantalla: {{.Screen | default \"-\"}}{{ \"\\n\" }}  motivo: {{.Reason}}{{if .ErrorName}} ({{.ErrorName}}){{end}}{{if .Endpoint}}{{ \"\\n\" }}  api: {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}{{if .Stack}}{{ \"\\n\" }}  stack: {{.Stack}}{{end}}{{if .Breadcrumbs}}{{ \"\\n\" }}  pasos previos: {{.Breadcrumbs}}{{end}}`",
           "refId": "A"
         }
       ]
@@ -768,7 +770,8 @@
         "showLabels": false,
         "wrapLogMessages": true,
         "sortOrder": "Descending",
-        "enableLogDetails": true
+        "enableLogDetails": true,
+        "prettifyLogMessage": false
       },
       "targets": [
         {
@@ -776,7 +779,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | UserId=~\"$userId\" | level=~\"error|warning\" |~ \"$search\"",
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | UserId=~\"$userId\" | level=~\"error|warning\" |~ \"$search\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.Screen | default \"-\"}} | {{.Reason}}{{if .Endpoint}} | {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}`",
           "refId": "A"
         }
       ]
@@ -801,7 +804,8 @@
         "showLabels": false,
         "wrapLogMessages": true,
         "sortOrder": "Descending",
-        "enableLogDetails": true
+        "enableLogDetails": true,
+        "prettifyLogMessage": false
       },
       "targets": [
         {
@@ -809,7 +813,7 @@
             "type": "loki",
             "uid": "loki"
           },
-          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | CorrelationId=~\"$correlationId\"",
+          "expr": "{app=\"miicel-mobile\"} | json | env=~\"$env\" | platform=~\"$platform\" | CorrelationId=~\"$correlationId\" | line_format `{{.level}} | {{.Event}} | socio {{.UserId | default \"-\"}} emp {{.Company | default \"-\"}} | {{.Screen | default \"-\"}} | {{.Reason}}{{if .Endpoint}} | {{.Endpoint}} {{.Status}} {{.DurationMs}}ms{{end}}`",
           "refId": "A"
         }
       ]

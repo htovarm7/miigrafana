@@ -56,3 +56,16 @@ Native crashes (Java/Objective-C/out of memory) are not captured; only JS errors
 {app="miicel-mobile"} | json | Event="api.request" | unwrap DurationMs
 {app="miicel-mobile"} | json | UserId="2112" | Company="25"
 ```
+
+## How it reads in Grafana
+
+Lines are stored as JSON. The dashboard log panels show them with `line_format`:
+
+```
+error | api.server_error | socio 2112 emp 25 | android 4.9 | pantalla: SavingTarget
+  motivo: GET api/usr/savingtargeted/{id}/details/{id} -> 500
+  api: api/usr/savingtargeted/{id}/details/{id} 500 4200ms
+  pasos previos: 12:01:03 screen SavingTarget | 12:01:04 api GET ... 500
+```
+
+Errors and Crashes show stack and breadcrumbs; Audit and Trace show one compact line. In Explore, add the same `| line_format` or open a line to see every field.
