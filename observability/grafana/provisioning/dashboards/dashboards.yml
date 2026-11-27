@@ -1,30 +1,39 @@
 apiVersion: 1
 
-# One provider/folder per service, matching observability/grafana/dashboards/<service>/.
+# One provider/folder per area, matching observability/grafana/dashboards/<dir>/.
 providers:
-  - name: MiiCel Management
+  - name: MiiCel General
     orgId: 1
-    folder: "MiiCel/Management"
+    folder: "MiiCel - General"
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /var/lib/grafana/dashboards/management
+      path: /var/lib/grafana/dashboards/general
 
-  - name: MiiCel Users
+  - name: MiiCaja Mobile
     orgId: 1
-    folder: "MiiCel/Users"
+    folder: "MiiCaja Mobile"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards/mobile-app
+
+  - name: MiiCel API Users
+    orgId: 1
+    folder: "MiiCel API - Users"
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
       path: /var/lib/grafana/dashboards/users
 
-  - name: MiiCel Mobile App
+  - name: MiiCel API Management
     orgId: 1
-    folder: "MiiCel/Mobile App"
+    folder: "MiiCel API - Management"
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30
     options:
-      path: /var/lib/grafana/dashboards/mobile-app
+      path: /var/lib/grafana/dashboards/management

@@ -1,11 +1,14 @@
 {
-  "title": "MiiCel Back - Management (local)",
+  "title": "MiiCel API Management - Overview",
   "uid": "miicel-overview",
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 2,
   "refresh": "10s",
-  "time": { "from": "now-15m", "to": "now" },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
@@ -13,7 +16,10 @@
         "type": "textbox",
         "label": "Search logs (regex)",
         "query": ".*",
-        "current": { "text": ".*", "value": ".*" }
+        "current": {
+          "text": ".*",
+          "value": ".*"
+        }
       },
       {
         "name": "userId",
@@ -21,7 +27,10 @@
         "label": "UserId (audit)",
         "description": "Filters the audit panel by UserId. Use .+ for all users.",
         "query": ".+",
-        "current": { "text": ".+", "value": ".+" }
+        "current": {
+          "text": ".+",
+          "value": ".+"
+        }
       }
     ]
   },
@@ -30,11 +39,22 @@
       "id": 1,
       "title": "Service up/down",
       "type": "stat",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "up{job=\"miicel-api-management\"}",
           "legendFormat": "management"
         }
@@ -42,10 +62,38 @@
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } },
-            { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } }
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
           ],
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "green", "value": 1 }] }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
         }
       }
     },
@@ -53,11 +101,22 @@
       "id": 2,
       "title": "Requests per endpoint (req/s)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 18,
+        "x": 6,
+        "y": 0
+      },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (http_route) (rate(http_server_request_duration_seconds_count{job=\"miicel-api-management\"}[1m]))",
           "legendFormat": "{{http_route}}"
         }
@@ -67,12 +126,30 @@
       "id": 3,
       "title": "5xx error rate per endpoint (req/s)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-      "fieldConfig": { "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } } },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          }
+        }
+      },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (http_route) (rate(http_server_request_duration_seconds_count{job=\"miicel-api-management\", http_response_status_code=~\"5..\"}[1m]))",
           "legendFormat": "{{http_route}}"
         }
@@ -82,11 +159,22 @@
       "id": 4,
       "title": "p95 latency per endpoint (s)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket{job=\"miicel-api-management\"}[5m])))",
           "legendFormat": "{{http_route}}"
         }
@@ -94,10 +182,18 @@
     },
     {
       "id": 6,
-      "title": "Errores (level=error)",
+      "title": "Errors (level=error)",
       "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 20 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
       "options": {
         "showTime": true,
         "showLabels": false,
@@ -106,7 +202,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "expr": "{app=\"miicel-api-management\"} | json | level=\"error\" |~ \"$search\""
         }
       ]
@@ -115,8 +214,16 @@
       "id": 5,
       "title": "All logs",
       "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 28 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
       "options": {
         "showTime": true,
         "showLabels": false,
@@ -125,7 +232,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "expr": "{app=\"miicel-api-management\"} |~ \"$search\""
         }
       ]
@@ -135,8 +245,16 @@
       "title": "Audit: what user $userId did before failing",
       "description": "Errors only, filtered by UserId.",
       "type": "logs",
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 36 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 36
+      },
       "options": {
         "showTime": true,
         "showLabels": true,
@@ -145,10 +263,30 @@
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "expr": "{app=\"miicel-api-management\"} | json | level=\"error\" | UserId=~\"$userId\""
         }
       ]
+    }
+  ],
+  "tags": [
+    "miicel",
+    "api",
+    "management"
+  ],
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "MiiCel dashboards",
+      "tags": [
+        "miicel"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
     }
   ]
 }
